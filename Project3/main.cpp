@@ -60,6 +60,7 @@ ID3D10RenderTargetView* pRenderTargetView = NULL;
 int BackBufferWidth = 0;
 int BackBufferHeight = 0;
 
+//Brick
 #define TEXTURE_PATH_BRICK L"brick.png"
 #define BRICK_START_X 8.0f
 #define BRICK_START_Y 200.0f
@@ -79,8 +80,27 @@ float brick_x = BRICK_START_X;
 float brick_vx = BRICK_START_VX;
 float brick_y = BRICK_START_Y;
 
+//Ball
+#define TEXTURE_PATH_BALL L"ball.png"
+ID3D10BlendState* pBlendState = NULL; // Blend state for transparency
 
-bool keyStates[256] = { false }; // Store key states
+struct Ball {
+	float x, y;       // Position
+	float vx, vy;     // Velocity
+	bool exists;      // Whether the ball exists on the screen
+};
+
+Ball ball = { 0, 0, 0, 0, false }; // Initialize the ball
+
+#define BALL_WIDTH 16.0f
+#define BALL_HEIGHT 16.0f
+
+ID3D10Texture2D* texBall = NULL; // Texture object for the ball
+
+D3DX10_SPRITE spriteBall;
+
+// Store key states
+bool keyStates[256] = { false }; 
 
 LRESULT CALLBACK WinProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -264,11 +284,31 @@ void InitDirectX(HWND hWnd)
 	hr = spriteObject->SetProjectionTransform(&matProjection);
 
 
+	// Create a blend state for transparency
+	D3D10_BLEND_DESC blendDesc;
+	ZeroMemory(&blendDesc, sizeof(blendDesc));
+	blendDesc.AlphaToCoverageEnable = FALSE;
+	blendDesc.BlendEnable[0] = TRUE; // Enable blending
+	blendDesc.SrcBlend = D3D10_BLEND_SRC_ALPHA;
+	blendDesc.DestBlend = D3D10_BLEND_INV_SRC_ALPHA;
+	blendDesc.BlendOp = D3D10_BLEND_OP_ADD;
+	blendDesc.SrcBlendAlpha = D3D10_BLEND_ONE;
+	blendDesc.DestBlendAlpha = D3D10_BLEND_ZERO;
+	blendDesc.BlendOpAlpha = D3D10_BLEND_OP_ADD;
+	blendDesc.RenderTargetWriteMask[0] = D3D10_COLOR_WRITE_ENABLE_ALL;
 
+	hr = pD3DDevice->CreateBlendState(&blendDesc, &pBlendState);
+	if (FAILED(hr))
+	{
+		DebugOut((wchar_t*)L"[ERROR] Failed to create blend state\n");
+		return;
+	}
+
+	// Set the blend state
+	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	pD3DDevice->OMSetBlendState(pBlendState, blendFactor, 0xFFFFFFFF);
 
 	DebugOut((wchar_t*)L"[INFO] InitDirectX has been successful\n");
-
-	return;
 }
 
 /*
@@ -298,6 +338,28 @@ void LoadResources()
 	pD3D10Resource->Release();
 
 	if (!texBrick) {
+		DebugOut((wchar_t*)L"[ERROR] Failed to convert from ID3D10Resource to ID3D10Texture2D \n");
+		return;
+	}
+
+	// Load the ball texture
+	hr = D3DX10CreateTextureFromFile(pD3DDevice,
+		TEXTURE_PATH_BALL,
+		NULL,
+		NULL,
+		&pD3D10Resource,
+		NULL);
+
+	if (FAILED(hr))
+	{
+		DebugOut((wchar_t*)L"[ERROR] Failed to load texture file: %s \n", TEXTURE_PATH_BALL);
+		return;
+	}
+
+	pD3D10Resource->QueryInterface(__uuidof(ID3D10Texture2D), (LPVOID*)&texBall);
+	pD3D10Resource->Release();
+
+	if (!texBall) {
 		DebugOut((wchar_t*)L"[ERROR] Failed to convert from ID3D10Resource to ID3D10Texture2D \n");
 		return;
 	}
@@ -340,7 +402,26 @@ void LoadResources()
 	spriteBrick.ColorModulate = D3DXCOLOR(1.0f, 1.0f, 1.0f, 1.0f);
 
 
-	DebugOut((wchar_t*)L"[INFO] Texture loaded Ok: %s \n", TEXTURE_PATH_BRICK);
+	// Create shader resource view for the ball texture
+	texBall->GetDesc(&desc);
+	ZeroMemory(&SRVDesc, sizeof(SRVDesc));
+
+	SRVDesc.Format = desc.Format;
+	SRVDesc.ViewDimension = D3D10_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D.MipLevels = desc.MipLevels;
+
+	ID3D10ShaderResourceView* gBallTextureRV = NULL;
+	pD3DDevice->CreateShaderResourceView(texBall, &SRVDesc, &gBallTextureRV);
+
+	spriteBall.pTexture = gBallTextureRV; // Set the ball texture
+	spriteBall.TexCoord.x = 0; // Top-left UV coordinate
+	spriteBall.TexCoord.y = 0;
+	spriteBall.TexSize.x = 1.0f; // Texture size in UV coordinates
+	spriteBall.TexSize.y = 1.0f;
+	spriteBall.TextureIndex = 0; // Texture index (0 for single texture)
+	spriteBall.ColorModulate = D3DXCOLOR(1.0f, 1.0f, 1.0f, 1.0f); // Full color (no tint)
+
+	DebugOut((wchar_t*)L"[INFO] Textures loaded successfully: %s, %s \n", TEXTURE_PATH_BRICK, TEXTURE_PATH_BALL);
 }
 
 /*
@@ -360,12 +441,30 @@ void Update(DWORD dt)
 
 	// Correct boundary conditions, accounting for sprite dimensions
 	if (brick_x < BRICK_WIDTH / 2) brick_x = BRICK_WIDTH / 2;  // Left bound
-	if (brick_x > BackBufferWidth - BRICK_WIDTH/2) brick_x = BackBufferWidth - BRICK_WIDTH/2; // Right bound
+	if (brick_x > BackBufferWidth - BRICK_WIDTH / 2) brick_x = BackBufferWidth - BRICK_WIDTH / 2; // Right bound
 	if (brick_y < BRICK_HEIGHT / 2) brick_y = BRICK_HEIGHT / 2;  // Top bound
-	if (brick_y > BackBufferHeight - BRICK_HEIGHT/2) brick_y = BackBufferHeight - BRICK_HEIGHT/2; // Bottom bound
+	if (brick_y > BackBufferHeight - BRICK_HEIGHT / 2) brick_y = BackBufferHeight - BRICK_HEIGHT / 2; // Bottom bound
+
+	// Update ball position if it exists
+	if (ball.exists) {
+		ball.x += ball.vx * dt;
+		ball.y += ball.vy * dt;
+
+		// Check if the ball goes off-screen
+		if (ball.x < 0 || ball.x > BackBufferWidth || ball.y < 0 || ball.y > BackBufferHeight) {
+			ball.exists = false; // Ball is off-screen, so it no longer exists
+		}
+	}
+
+	// Handle shooting logic
+	if (keyStates[' '] && !ball.exists) { // Space key to shoot
+		ball.x = brick_x;
+		ball.y = brick_y;
+		ball.vx = 0; // Set ball velocity
+		ball.vy = -0.1f;
+		ball.exists = true;
+	}
 }
-
-
 
 /*
 	Render a frame
@@ -394,6 +493,17 @@ void Render()
 		spriteBrick.matWorld = (matScaling * matTranslation);
 
 		spriteObject->DrawSpritesImmediate(&spriteBrick, 1, 0, 0);
+
+		// Render the ball if it exists
+		if (ball.exists) {
+			D3DXMATRIX ballTranslation;
+			D3DXMatrixTranslation(&ballTranslation, ball.x, (BackBufferHeight - ball.y), 0.1f);
+			D3DXMATRIX ballScaling;
+			D3DXMatrixScaling(&ballScaling, BALL_WIDTH, BALL_HEIGHT, 1.0f); // Use BALL_WIDTH and BALL_HEIGHT
+			spriteBall.matWorld = (ballScaling * ballTranslation); // Use spriteBall instead of spriteBrick
+			spriteObject->DrawSpritesImmediate(&spriteBall, 1, 0, 0); // Use spriteBall instead of spriteBrick
+		}
+
 
 		// Finish up and send the sprites to the hardware
 		spriteObject->End();
@@ -493,6 +603,9 @@ int Run()
 
 void Cleanup()
 {
+	// Release the blend state
+	if (pBlendState) pBlendState->Release();
+
 	// release the rendertarget
 	if (pRenderTargetView)
 	{
@@ -514,6 +627,9 @@ void Cleanup()
 		spriteObject->Release();
 		spriteObject = NULL;
 	}
+
+	// Release the ball texture
+	if (texBall) texBall->Release();
 
 	DebugOut((wchar_t*)L"[INFO] Cleanup Ok\n");
 }

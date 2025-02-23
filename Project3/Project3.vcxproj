@@ -131,6 +131,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="ball.png" />
     <Image Include="brick.ico" />
     <Image Include="brick.png" />
   </ItemGroup>

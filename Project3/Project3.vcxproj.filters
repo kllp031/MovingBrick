@@ -24,6 +24,9 @@
     <Image Include="brick.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="ball.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
