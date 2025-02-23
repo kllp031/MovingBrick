@@ -337,6 +337,7 @@ void LoadResources()
 	pD3D10Resource->QueryInterface(__uuidof(ID3D10Texture2D), (LPVOID*)&texBrick);
 	pD3D10Resource->Release();
 
+	//MAke sure the translate happen successfully
 	if (!texBrick) {
 		DebugOut((wchar_t*)L"[ERROR] Failed to convert from ID3D10Resource to ID3D10Texture2D \n");
 		return;
@@ -376,6 +377,7 @@ void LoadResources()
 
 	// Set the texture format
 	SRVDesc.Format = desc.Format;
+
 	// Set the type of resource
 	SRVDesc.ViewDimension = D3D10_SRV_DIMENSION_TEXTURE2D;
 	SRVDesc.Texture2D.MipLevels = desc.MipLevels;
@@ -482,6 +484,7 @@ void Render()
 
 		// The translation matrix to be created
 		D3DXMATRIX matTranslation;
+
 		// Create the translation matrix
 		D3DXMatrixTranslation(&matTranslation, brick_x, (BackBufferHeight - brick_y), 0.1f);
 
