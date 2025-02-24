@@ -56,6 +56,7 @@ HWND hWnd = 0;
 ID3D10Device* pD3DDevice = NULL;
 IDXGISwapChain* pSwapChain = NULL;
 ID3D10RenderTargetView* pRenderTargetView = NULL;
+ID3DX10Sprite* spriteObject = NULL;				// Sprite handling object 
 
 int BackBufferWidth = 0;
 int BackBufferHeight = 0;
@@ -70,10 +71,7 @@ int BackBufferHeight = 0;
 #define BRICK_WIDTH 16.0f
 #define BRICK_HEIGHT 16.0f
 
-
 ID3D10Texture2D* texBrick = NULL;				// Texture object to store brick image
-ID3DX10Sprite* spriteObject = NULL;				// Sprite handling object 
-
 D3DX10_SPRITE spriteBrick;
 
 float brick_x = BRICK_START_X;
@@ -82,6 +80,10 @@ float brick_y = BRICK_START_Y;
 
 //Ball
 #define TEXTURE_PATH_BALL L"ball.png"
+
+#define BALL_WIDTH 16.0f
+#define BALL_HEIGHT 16.0f
+
 ID3D10BlendState* pBlendState = NULL; // Blend state for transparency
 
 struct Ball {
@@ -92,11 +94,7 @@ struct Ball {
 
 Ball ball = { 0, 0, 0, 0, false }; // Initialize the ball
 
-#define BALL_WIDTH 16.0f
-#define BALL_HEIGHT 16.0f
-
 ID3D10Texture2D* texBall = NULL; // Texture object for the ball
-
 D3DX10_SPRITE spriteBall;
 
 // Store key states
@@ -503,7 +501,7 @@ void Render()
 			D3DXMatrixTranslation(&ballTranslation, ball.x, (BackBufferHeight - ball.y), 0.1f);
 			D3DXMATRIX ballScaling;
 			D3DXMatrixScaling(&ballScaling, BALL_WIDTH, BALL_HEIGHT, 1.0f); // Use BALL_WIDTH and BALL_HEIGHT
-			spriteBall.matWorld = (ballScaling * ballTranslation); // Use spriteBall instead of spriteBrick
+			spriteBall.matWorld = (ballScaling * ballTranslation); 
 			spriteObject->DrawSpritesImmediate(&spriteBall, 1, 0, 0); // Use spriteBall instead of spriteBrick
 		}
 
@@ -632,7 +630,7 @@ void Cleanup()
 	}
 
 	// Release the ball texture
-	if (texBall) texBall->Release();
+	//if (texBall) texBall->Release();
 
 	DebugOut((wchar_t*)L"[INFO] Cleanup Ok\n");
 }
